@@ -1,0 +1,360 @@
+#include <iostream>
+#include <fstream>
+#include <string>
+
+using namespace std;
+
+// Global constants
+const int MAX_LIMIT = 100;
+const string FILE_NAME = "media_ledger.txt";
+
+// ==========================================
+// 2. STRUCTURES COMPONENT (Record Modeling)
+// ==========================================
+
+// Nested structure mapping specific sub-attributes
+struct ReleaseDetails {
+    int releaseYear;
+    string productionStudio;
+};
+
+// Primary structure with typedef alias
+typedef struct {
+    int assetID; // Unique numerical key for sorting/searching
+    string title;
+    string genre;
+    ReleaseDetails details; // Nested structure demonstration
+} MediaAsset;
+
+// ==========================================
+// 4. LINEAR SCHEDULING COMPONENT (Custom Queue)
+// ==========================================
+class CustomQueue {
+private:
+    int items[MAX_LIMIT];
+    int front;
+    int rear;
+    int count;
+
+public:
+    CustomQueue() {
+        front = 0;
+        rear = -1;
+        count = 0;
+    }
+
+    bool isFull() { return count == MAX_LIMIT; }
+    bool isEmpty() { return count == 0; }
+
+    void enqueue(int id) {
+        if (isFull()) {
+            cout << "[Error] Processing Queue is full!\n";
+            return;
+        }
+        rear = (rear + 1) % MAX_LIMIT;
+        items[rear] = id;
+        count++;
+    }
+
+    int dequeue() {
+        if (isEmpty()) {
+            cout << "[Warning] Processing Queue is empty.\n";
+            return -1;
+        }
+        int id = items[front];
+        front = (front + 1) % MAX_LIMIT;
+        count--;
+        return id;
+    }
+
+    void displayQueue() {
+        if (isEmpty()) {
+            cout << "Empty queue (No active jobs pending).\n";
+            return;
+        }
+        cout << "Current Download/Rendering Track Sequence: ";
+        int index = front;
+        for (int i = 0; i < count; i++) {
+            cout << "[Asset ID: " << items[index] << "]";
+            if (i < count - 1) cout << " -> ";
+            index = (index + 1) % MAX_LIMIT;
+        }
+        cout << "\n";
+    }
+};
+
+// ==========================================
+// 5. NON-LINEAR HIERARCHICAL COMPONENT (BST)
+// ==========================================
+struct TreeNode {
+    string genreName;
+    TreeNode* left;
+    TreeNode* right;
+
+    TreeNode(string name) {
+        genreName = name;
+        left = nullptr;
+        right = nullptr;
+    }
+};
+
+class GenreTree {
+private:
+    TreeNode* root;
+
+    TreeNode* insertNode(TreeNode* node, string genre) {
+        if (node == nullptr) return new TreeNode(genre);
+        if (genre < node->genreName) {
+            node->left = insertNode(node->left, genre);
+        } else if (genre > node->genreName) {
+            node->right = insertNode(node->right, genre);
+        }
+        return node;
+    }
+
+    void inOrderTraversal(TreeNode* node) {
+        if (node != nullptr) {
+            inOrderTraversal(node->left);
+            cout << " -> " << node->genreName << "\n";
+            inOrderTraversal(node->right);
+        }
+    }
+
+    void destroyTree(TreeNode* node) {
+        if (node != nullptr) {
+            destroyTree(node->left);
+            destroyTree(node->right);
+            delete node;
+        }
+    }
+
+public:
+    GenreTree() { root = nullptr; }
+    ~GenreTree() { destroyTree(root); }
+
+    void addGenre(string genre) { root = insertNode(root, genre); }
+    void displayHierarchy() { 
+        if (root == nullptr) {
+            cout << "No genres mapped.\n";
+            return;
+        }
+        inOrderTraversal(root); 
+    }
+};
+
+// ==========================================
+// 3. SORTING AND SEARCHING ALGORITHMS
+// ==========================================
+
+// Manual Selection Sort (Ascending Order based on assetID)
+void selectionSort(MediaAsset arr[], int n) {
+    for (int i = 0; i < n - 1; i++) {
+        int minIndex = i;
+        for (int j = i + 1; j < n; j++) {
+            if (arr[j].assetID < arr[minIndex].assetID) {
+                minIndex = j;
+            }
+        }
+        if (minIndex != i) {
+            MediaAsset temp = arr[i];
+            arr[i] = arr[minIndex];
+            arr[minIndex] = temp;
+        }
+    }
+}
+
+// Manual Binary Search
+int binarySearch(MediaAsset arr[], int n, int targetID) {
+    int low = 0;
+    int high = n - 1;
+    while (low <= high) {
+        int mid = low + (high - low) / 2;
+        if (arr[mid].assetID == targetID) {
+            return mid; 
+        } else if (arr[mid].assetID < targetID) {
+            low = mid + 1;
+        } else {
+            high = mid - 1;
+        }
+    }
+    return -1; // Not found
+}
+
+// ==========================================
+// MAIN APPLICATION SYSTEM ENGINE
+// ==========================================
+int main() {
+    // 1. ARRAY COMPONENT: Raw, static array of fixed bounds
+    MediaAsset masterCatalog[MAX_LIMIT];
+    int assetCount = 0;
+    bool isSorted = false;
+
+    CustomQueue processQueue;
+    GenreTree categoryTree;
+
+    // ==========================================
+    // 6. PERSISTENT LEDGER: On Application Startup (Boot)
+    // ==========================================
+    ifstream inFile(FILE_NAME);
+    if (inFile.is_open()) {
+        while (assetCount < MAX_LIMIT && inFile >> masterCatalog[assetCount].assetID) {
+            inFile.ignore(); // consume delimiter/newline
+            getline(inFile, masterCatalog[assetCount].title);
+            getline(inFile, masterCatalog[assetCount].genre);
+            inFile >> masterCatalog[assetCount].details.releaseYear;
+            inFile.ignore();
+            getline(inFile, masterCatalog[assetCount].details.productionStudio);
+            
+            // Build tree mapping from file records
+            categoryTree.addGenre(masterCatalog[assetCount].genre);
+            assetCount++;
+        }
+        inFile.close();
+        cout << "[System Boot] Successfully populated " << assetCount << " records from ledger file.\n";
+    } else {
+        cout << "[System Boot] No existing database file found. Initializing empty runtime environment.\n";
+    }
+
+    int choice;
+    do {
+        cout << "\n==================================================\n";
+        cout << "      MEDIA ASSET ENGINE - SYSTEM CONSOLE         \n";
+        cout << "==================================================\n";
+        cout << "1. Add New Media Asset Record\n";
+        cout << "2. Display Master Catalog Records\n";
+        cout << "3. Manually Sort Catalog (Selection Sort)\n";
+        cout << "4. Look up Asset by ID (Binary Search)\n";
+        cout << "5. Add Asset to Job Queue (Enqueue)\n";
+        cout << "6. Service Next Job from Queue (Dequeue)\n";
+        cout << "7. View Production Job Sequence status\n";
+        cout << "8. View Categorized Genre Hierarchy Tree\n";
+        cout << "9. Save & Shut Down System\n";
+        cout << "Enter selection option: ";
+        cin >> choice;
+
+        if (cin.fail()) {
+            cin.clear();
+            cin.ignore(1000, '\n');
+            continue;
+        }
+
+        switch (choice) {
+            case 1: {
+                if (assetCount >= MAX_LIMIT) {
+                    cout << "[Limit Error] Cannot register asset. Raw storage complete.\n";
+                    break;
+                }
+                MediaAsset asset;
+                cout << "Enter Unique Asset Numerical ID: ";
+                cin >> asset.assetID;
+                cin.ignore();
+                cout << "Enter Asset Title: ";
+                getline(cin, asset.title);
+                cout << "Enter Genre: ";
+                getline(cin, asset.genre);
+                cout << "Enter Release Year: ";
+                cin >> asset.details.releaseYear;
+                cin.ignore();
+                cout << "Enter Production Studio name: ";
+                getline(cin, asset.details.productionStudio);
+
+                masterCatalog[assetCount] = asset;
+                categoryTree.addGenre(asset.genre);
+                assetCount++;
+                isSorted = false; // Mark unsorted due to new insertion
+                cout << "\n[Success] Record dynamically committed to application sequence.\n";
+                break;
+            }
+            case 2: {
+                if (assetCount == 0) {
+                    cout << "The application master catalog is entirely empty.\n";
+                } else {
+                    cout << "\n--- CURRENT MASTER CATALOG RECORDS ---\n";
+                    for (int i = 0; i < assetCount; i++) {
+                        cout << "ID: " << masterCatalog[i].assetID 
+                             << " | Title: " << masterCatalog[i].title 
+                             << " | Genre: " << masterCatalog[i].genre 
+                             << " | Year: " << masterCatalog[i].details.releaseYear
+                             << " | Studio: " << masterCatalog[i].details.productionStudio << "\n";
+                    }
+                }
+                break;
+            }
+            case 3: {
+                selectionSort(masterCatalog, assetCount);
+                isSorted = true;
+                cout << "[Algorithm Success] Master catalog explicitly organized via Selection Sort.\n";
+                break;
+            }
+            case 4: {
+                if (!isSorted) {
+                    cout << "[Constraint Halt] System requirements mandate sorting data BEFORE processing binary searches. Run Option 3 first!\n";
+                    break;
+                }
+                int searchID;
+                cout << "Enter target Asset ID to retrieve: ";
+                cin >> searchID;
+                int index = binarySearch(masterCatalog, assetCount, searchID);
+                if (index != -1) {
+                    cout << "\n[Match Verified at Index " << index << "]:\n";
+                    cout << " -> Title: " << masterCatalog[index].title << "\n";
+                    cout << " -> Sub-Genre Node: " << masterCatalog[index].genre << "\n";
+                    cout << " -> Bundled Year: " << masterCatalog[index].details.releaseYear << "\n";
+                    cout << " -> Studio Tag: " << masterCatalog[index].details.productionStudio << "\n";
+                } else {
+                    cout << "No matching asset entry corresponds to ID " << searchID << "\n";
+                }
+                break;
+            }
+            case 5: {
+                int targetID;
+                cout << "Enter Asset ID to enqueue for distribution tracking: ";
+                cin >> targetID;
+                processQueue.enqueue(targetID);
+                cout << "Enqueued Asset ID: " << targetID << "\n";
+                break;
+            }
+            case 6: {
+                int id = processQueue.dequeue();
+                if (id != -1) {
+                    cout << "[Service Tracker] Successfully dispatched Asset ID " << id << " for active pipeline processing.\n";
+                }
+                break;
+            }
+            case 7: {
+                processQueue.displayQueue();
+                break;
+            }
+            case 8: {
+                cout << "\n--- GENRE ROUTING TREE HIERARCHY (In-Order) ---\n";
+                categoryTree.displayHierarchy();
+                break;
+            }
+            case 9:
+                cout << "Exiting console sequence interface...\n";
+                break;
+            default:
+                cout << "Invalid criteria option selected. Try again.\n";
+        }
+    } while (choice != 9);
+
+    // ==========================================
+    // 6. PERSISTENT LEDGER: On Application Shutdown (Exit)
+    // ==========================================
+    ofstream outFile(FILE_NAME);
+    if (outFile.is_open()) {
+        for (int i = 0; i < assetCount; i++) {
+            outFile << masterCatalog[i].assetID << "\n"
+                    << masterCatalog[i].title << "\n"
+                    << masterCatalog[i].genre << "\n"
+                    << masterCatalog[i].details.releaseYear << "\n"
+                    << masterCatalog[i].details.productionStudio << "\n";
+        }
+        outFile.close();
+        cout << "[System Saved Successfully] Ledger disk commits finalized. Goodbye.\n";
+    } else {
+        cout << "[Critical Failure] Encountered problem generating final data export to ledger.\n";
+    }
+
+    return 0;
+}
